@@ -1,0 +1,45 @@
+---
+- name: Ansible for improved server inventory assessment
+  hosts: all
+  remote_user: sshuser
+  gather_facts: true
+  vars_files:
+    - /path/to/variable/.var.txt
+  become: yes
+  ignore_errors: yes
+  ignore_unreachable: yes
+
+
+  vars:
+   export_path: /path/for/result
+   filename: "linux_inventory_{{ date }}.csv"
+
+  tasks:
+
+    - name: CSV - Generate output filename date
+      set_fact: date="{{lookup('pipe','date +%Y%m%d')}}"
+      run_once: true
+
+    - name: CSV - Create file and set the header
+      lineinfile:
+       dest: "{{ export_path }}/{{ filename }}"
+       line:
+         Hostname | IPAddress | OS_Release | Kernal_Release | Processor | Memory
+       state: present
+       create: yes
+      delegate_to:  localhost
+
+
+    - name: CSV - Get devices facts
+      set_fact:
+       csv_tmp: >
+         {{ ansible_nodename }} | {{  ansible_default_ipv4 ['address'] }} | {{  ansible_distribution }} {{ ansible_distribution_version }} |
+         {{ ansible_kernel }} | {{ ansible_processor_vcpus }} | {{ ansible_memory_mb ['real'] ['total'] }}
+
+
+    - name:  CSV - Write information into .csv file
+      lineinfile:
+       insertafter: EOF
+       dest: "{{ export_path }}/{{ filename }}"
+       line: "{{ csv_tmp }}"
+      delegate_to:  localhost
